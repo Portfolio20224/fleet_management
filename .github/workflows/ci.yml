@@ -106,8 +106,9 @@ jobs:
 
       - name: L'application répond
         run: |
+          # attente du démarrage (migrations comprises), sans bruit dans le journal
           for i in $(seq 1 30); do
-            if curl -fsS http://localhost:8000/sante/; then echo; break; fi
+            if curl -fsS http://localhost:8000/sante/ 2>/dev/null; then echo " (après ${i} essai(s))"; break; fi
             sleep 2
           done
           curl -fsS http://localhost:8000/sante/ | grep -q ok
@@ -116,9 +117,11 @@ jobs:
           curl -fsS -o /dev/null http://localhost:8000/admin/login/
           curl -fsS -o /dev/null http://localhost:8000/static/admin/css/base.css
           docker logs fleet 2>&1 | grep -q "administrateur « admin » créé"
-          # Gunicorn ne tourne pas en root
-          docker top fleet -o user,args
-          ! docker top fleet -o user,args | grep -E "^root[[:space:]].*gunicorn"
+          # Gunicorn ne tourne pas en root : le processus principal (PID 1) doit être
+          # gunicorn, lancé par l'utilisateur « app » (uid 1000).
+          echo "PID 1 : $(docker exec fleet sh -c "tr '\\0' ' ' < /proc/1/cmdline")"
+          docker exec fleet sh -c "tr '\\0' ' ' < /proc/1/cmdline" | grep -q gunicorn
+          test "$(docker exec fleet stat -c %u /proc/1)" = "1000"
 
       - name: Journaux du conteneur
         if: always()

@@ -30,4 +30,4 @@ RUN useradd --create-home --uid 1000 app \
 
 EXPOSE 8000
 ENTRYPOINT ["docker/entrypoint.sh"]
-CMD ["sh", "-c", "gunicorn fleet_manager.wsgi:application --bind 0.0.0.0:${PORT} --workers ${WEB_CONCURRENCY:-2} --timeout 60 --access-logfile - --error-logfile -"]
+CMD ["sh", "-c", "exec gunicorn fleet_manager.wsgi:application --bind 0.0.0.0:${PORT} --workers ${WEB_CONCURRENCY:-2} --timeout 60 --access-logfile - --error-logfile -"]
