@@ -1,0 +1,51 @@
+{% extends "base.html" %}{% load filters %}
+{% block title %}Service Technique — Fleet Manager{% endblock %}
+{% block content %}
+<h1 class="h2 mb-4">&#128295; Service Technique — Kanban des pannes</h1>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3"><div class="card text-center shadow-sm"><div class="card-body">
+    <h2 class="h6 text-muted">Pannes ouvertes</h2><p class="h3 mb-0">{{ ouvertes }}</p></div></div></div>
+  <div class="col-6 col-md-3"><div class="card text-center shadow-sm"><div class="card-body">
+    <h2 class="h6 text-muted">&#128308; Critiques ouvertes</h2><p class="h3 mb-0 text-danger">{{ critiques }}</p></div></div></div>
+  <div class="col-6 col-md-3"><div class="card text-center shadow-sm"><div class="card-body">
+    <h2 class="h6 text-muted">Terminées (total)</h2><p class="h3 mb-0 text-success">{{ terminees }}</p></div></div></div>
+  <div class="col-6 col-md-3"><div class="card text-center shadow-sm"><div class="card-body">
+    <h2 class="h6 text-muted">Taux de résolution</h2><p class="h3 mb-0">{{ taux }} %</p></div></div></div>
+</div>
+
+<div class="row g-3">
+  {% for col in colonnes %}
+  <div class="col-md-6 col-xl-3">
+    <div class="card">
+      <div class="card-header text-white {% if col.code == etape_finale %}bg-success{% else %}bg-secondary{% endif %}">
+        {{ col.libelle }} <span class="badge bg-light text-dark">{{ col.pannes|length }}</span>
+      </div>
+      <div class="card-body p-2" style="min-height: 200px; background: #f8f9fa;">
+        {% for p in col.pannes %}
+        <div class="card mb-2 shadow-sm">
+          <div class="card-body p-2">
+            <span class="badge {% if p.priorite == 'Critique' %}bg-danger{% elif p.priorite == 'Haute' %}text-white{% elif p.priorite == 'Moyenne' %}bg-warning text-dark{% else %}bg-success{% endif %}"
+                  {% if p.priorite == 'Haute' %}style="background:#f97316"{% endif %}>{{ p.get_priorite_display }}</span>
+            <small class="text-muted"> #{{ p.id }}</small>
+            <p class="small mt-1 mb-1"><strong>{{ p.vehicule.plaque }}</strong> — {{ p.vehicule.marque }} {{ p.vehicule.modele }}</p>
+            <p class="small mb-1 text-break" title="{{ p.description }}">{{ p.description|truncatechars:100 }}</p>
+            <small class="text-muted">{{ p.date_declaration|date:"d/m/Y" }} · par {{ p.declaree_par|default:"—" }}</small>
+            {% if p.photo %}<small> · <a href="{{ p.photo.url }}" target="_blank" rel="noopener">photo</a></small>{% endif %}
+            {% if col.suivante %}
+            <form method="post" class="mt-2">{% csrf_token %}
+              <input type="hidden" name="panne_id" value="{{ p.id }}">
+              <button type="submit" class="btn btn-outline-primary btn-sm w-100">&#9654; {{ col.suivante }}</button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+        {% empty %}
+        <p class="text-muted small text-center mt-3">Aucune panne</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

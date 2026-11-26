@@ -1,0 +1,188 @@
+{% extends "base.html" %}{% load filters %}
+{% block title %}Direction Générale — Fleet Manager{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+{% endblock %}
+{% block content %}
+<h1 class="h2 mb-4">&#128084; Vue Direction Générale</h1>
+
+<div class="row g-3 mb-4">
+  <div class="col-12 col-sm-6 col-md"><div class="card text-center shadow-sm h-100"><div class="card-body">
+    <h2 class="h6 text-muted">CA du mois</h2><p class="h4 mb-0 text-success">{{ ca_mois|monnaie }}</p></div></div></div>
+  <div class="col-12 col-sm-6 col-md"><div class="card text-center shadow-sm h-100"><div class="card-body">
+    <h2 class="h6 text-muted">Recettes du jour</h2><p class="h4 mb-0">{{ r_jour_total|monnaie }}</p></div></div></div>
+  <div class="col-12 col-sm-6 col-md"><div class="card text-center shadow-sm h-100"><div class="card-body">
+    <h2 class="h6 text-muted">Véhicules en service</h2><p class="h4 mb-0">{{ nb_vehicules_service }} / {{ nb_vehicules }}</p></div></div></div>
+  <div class="col-12 col-sm-6 col-md"><div class="card text-center shadow-sm h-100"><div class="card-body">
+    <h2 class="h6 text-muted">Pannes ouvertes</h2><p class="h4 mb-0 {% if pannes_ouvertes %}text-danger{% endif %}">{{ pannes_ouvertes }}</p></div></div></div>
+  <div class="col-12 col-sm-6 col-md"><div class="card text-center shadow-sm h-100"><div class="card-body">
+    <h2 class="h6 text-muted">Présence du jour</h2><p class="h4 mb-0">{{ taux_presence }} %</p></div></div></div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">&#128506;&#65039; Carte des véhicules (positions simulées — Kinshasa)</div>
+  <div class="card-body">
+    <div id="map" style="height: 460px;" class="rounded"></div>
+    <div class="mt-2 small">
+      {% for libelle, couleur in legende %}<span class="badge me-1" style="background:{{ couleur }}">{{ libelle }}</span>{% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4 {% if alertes %}border-danger{% endif %}">
+  <div class="card-header {% if alertes %}bg-danger text-white{% endif %}">&#128680; Alertes ({{ alertes|length }} dont {{ nb_critiques }} critiques)</div>
+  <div class="card-body">
+    {% if alertes %}
+      <ul class="mb-0">
+        {% for niveau, message in alertes %}
+          <li>{% if niveau == 'critique' %}<span class="badge bg-danger">CRITIQUE</span>{% else %}<span class="badge bg-warning text-dark">Attention</span>{% endif %} {{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-success mb-0">&#127881; Aucune alerte — tout est sous contrôle.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card mb-4" id="parc">
+  <div class="card-header">&#128652; Parc automobile — âge et renouvellement</div>
+  <div class="card-body">
+    <div class="row g-3 mb-3 text-center">
+      <div class="col-6 col-md-3"><h2 class="h6 text-muted">Âge moyen du parc</h2>
+        <p class="h4 mb-0">{% if parc.age_moyen is not None %}{{ parc.age_moyen }} ans{% else %}—{% endif %}</p>
+        <p class="small text-muted mb-0">{{ parc.nb }} véhicule(s){% if parc.sans_date %}, {{ parc.sans_date }} sans date d'acquisition{% endif %}</p></div>
+      <div class="col-6 col-md-3"><h2 class="h6 text-muted">Plus ancien</h2>
+        <p class="h4 mb-0">{% if parc.plus_ancien %}{{ parc.plus_ancien.age|floatformat:1 }} ans{% else %}—{% endif %}</p>
+        <p class="small text-muted mb-0">{% if parc.plus_ancien %}{{ parc.plus_ancien.obj.plaque }} ({{ parc.plus_ancien.obj.marque }} {{ parc.plus_ancien.obj.modele }}){% endif %}</p></div>
+      <div class="col-6 col-md-3"><h2 class="h6 text-muted">À renouveler (≥ {{ parc.seuil }} ans)</h2>
+        <p class="h4 mb-0 {% if parc.a_renouveler %}text-danger{% endif %}">{{ parc.a_renouveler }}</p></div>
+      <div class="col-6 col-md-3"><h2 class="h6 text-muted">Atteindront {{ parc.seuil }} ans sous 12 mois</h2>
+        <p class="h4 mb-0 {% if parc.sous_12_mois %}text-warning{% endif %}">{{ parc.sous_12_mois }}</p>
+        <p class="small text-muted mb-0">achats à budgéter</p></div>
+    </div>
+    <div class="row g-3">
+      <div class="col-lg-5">
+        <h3 class="h6">Véhicules par âge (depuis l'acquisition)</h3>
+        <canvas id="chart-parc" height="200" role="img" aria-label="Histogramme des véhicules par tranche d'âge"></canvas>
+      </div>
+      <div class="col-lg-7">
+        <h3 class="h6">Du plus ancien au plus récent</h3>
+        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+          <table class="table table-sm mb-0">
+            <thead class="sticky-top bg-white"><tr><th>Plaque</th><th>Véhicule</th><th>Acquis le</th><th class="text-end">Âge</th><th class="text-end">Km</th><th>Renouvellement</th></tr></thead>
+            <tbody>{% for x in parc.lignes %}
+              <tr><td><span class="badge bg-dark">{{ x.obj.plaque }}</span></td>
+                  <td>{{ x.obj.marque }} {{ x.obj.modele }}{% if x.obj.annee_fabrication %} <span class="text-muted small">({{ x.obj.annee_fabrication }})</span>{% endif %}</td>
+                  <td>{{ x.obj.date_acquisition|date:"d/m/Y" }}</td>
+                  <td class="text-end">{{ x.age|floatformat:1 }} ans</td>
+                  <td class="text-end">{{ x.obj.kilometrage }}</td>
+                  <td>{% if x.a_renouveler %}<span class="badge bg-danger">&#9888; À renouveler</span>
+                      {% elif x.sous_12_mois %}<span class="badge bg-warning text-dark">&#9201; {{ x.echeance|date:"m/Y" }}</span>
+                      {% else %}<span class="text-muted small">{{ x.echeance|date:"m/Y" }}</span>{% endif %}</td></tr>
+            {% empty %}
+              <tr><td colspan="6" class="text-muted">Aucun véhicule avec une date d'acquisition.</td></tr>
+            {% endfor %}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <p class="small text-muted mt-2 mb-0">Seuil de renouvellement : {{ parc.seuil }} ans après l'acquisition (paramètre <code>FLEET_AGE_RENOUVELLEMENT_VEHICULE</code>).
+      Le kilométrage est affiché pour nuancer : un véhicule récent mais très roulant peut passer avant.</p>
+
+    <hr>
+    <h3 class="h6">&#10133; Ajouter un véhicule</h3>
+    <form method="post" class="row g-2 align-items-end">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_vehicule">
+      <div class="col-md-2"><label for="vh_plaque" class="form-label small mb-0">Plaque *</label><input name="plaque" id="vh_plaque" class="form-control text-uppercase" maxlength="20" required placeholder="1234AB"></div>
+      <div class="col-md-2"><label for="vh_marque" class="form-label small mb-0">Marque *</label><input name="marque" id="vh_marque" class="form-control" maxlength="50" required></div>
+      <div class="col-md-2"><label for="vh_modele" class="form-label small mb-0">Modèle *</label><input name="modele" id="vh_modele" class="form-control" maxlength="50" required></div>
+      <div class="col-md-2"><label for="vh_acq" class="form-label small mb-0">Date d'acquisition *</label><input type="date" name="date_acquisition" id="vh_acq" class="form-control" max="{% now 'Y-m-d' %}" required></div>
+      <div class="col-md-2"><label for="vh_annee" class="form-label small mb-0">Année de fabrication</label><input type="number" name="annee_fabrication" id="vh_annee" class="form-control" min="1980" max="{% now 'Y' %}" inputmode="numeric"></div>
+      <div class="col-md-2"><label for="vh_carb" class="form-label small mb-0">Carburant</label><select name="carburant" id="vh_carb" class="form-select">{% for c in carburants %}<option>{{ c }}</option>{% endfor %}</select></div>
+      <div class="col-md-2"><label for="vh_type" class="form-label small mb-0">Type</label><input name="type_vehicule" id="vh_type" class="form-control" maxlength="30" list="vh_types" placeholder="Bus, Mini-bus…">
+        <datalist id="vh_types"><option value="Bus"><option value="Mini-bus"><option value="Camionnette"><option value="Fourgon"><option value="VIP"></datalist></div>
+      <div class="col-md-2"><label for="vh_cat" class="form-label small mb-0">Catégorie</label><input name="categorie" id="vh_cat" class="form-control" maxlength="50" value="Transport"></div>
+      <div class="col-md-2"><label for="vh_chassis" class="form-label small mb-0">N° de châssis</label><input name="numero_chassis" id="vh_chassis" class="form-control" maxlength="50"></div>
+      <div class="col-md-2"><label for="vh_km" class="form-label small mb-0">Kilométrage</label><input type="number" name="kilometrage" id="vh_km" class="form-control" min="0" value="0" inputmode="numeric"></div>
+      <div class="col-md-2"><label for="vh_ct" class="form-label small mb-0">Prochain CT</label><input type="date" name="prochain_ct" id="vh_ct" class="form-control"></div>
+      <div class="col-md-2"><label for="vh_assu" class="form-label small mb-0">Fin d'assurance</label><input type="date" name="assurance_expire" id="vh_assu" class="form-control"></div>
+      <div class="col-12"><button type="submit" class="btn btn-primary">Ajouter le véhicule</button>
+        <span class="small text-muted ms-2">Il est créé « En service », sans position sur la carte ; attribuez-le ensuite à un chauffeur dans l'espace RH.</span></div>
+    </form>
+  </div>
+</div>
+{{ parc.graph|json_script:"parc-data" }}
+
+<div class="card">
+  <div class="card-header">&#128197; Rapports mensuels</div>
+  <div class="card-body">
+    <form method="get" action="{% url 'fleet:dg' %}" class="row g-2 align-items-end mb-3">
+      <div class="col-auto">
+        <label for="id_mois" class="form-label small mb-0">Mois</label>
+        <select name="mois" id="id_mois" class="form-select">
+          {% for val, label in mois_dispo %}
+            <option value="{{ val }}" {% if val == mois %}selected{% endif %}>{{ label }}</option>
+          {% empty %}
+            <option value="{{ mois }}">{{ mois }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto"><button type="submit" class="btn btn-primary">Voir</button></div>
+      <div class="col-auto ms-auto">
+        <a href="{% url 'fleet:dg' %}?mois={{ mois|urlencode }}&amp;export=rapport" class="btn btn-outline-primary">&#11015;&#65039; Télécharger (CSV)</a>
+      </div>
+    </form>
+
+    <div class="row g-3 mb-3 text-center">
+      <div class="col-6 col-md-3"><h2 class="h6 text-muted">Chiffre d'affaires</h2><p class="h4 text-success">{{ ca_mois|monnaie }}</p></div>
+      <div class="col-6 col-md-3"><h2 class="h6 text-muted">Dépenses</h2><p class="h4 text-danger">{{ dep_mois|monnaie }}</p></div>
+      <div class="col-6 col-md-3"><h2 class="h6 text-muted">Résultat net</h2><p class="h4 {% if resultat < 0 %}text-danger{% else %}text-success{% endif %}">{{ resultat|monnaie }}</p></div>
+      <div class="col-6 col-md-3"><h2 class="h6 text-muted">Nb recettes</h2><p class="h4">{{ nb_recettes }}</p></div>
+    </div>
+    {% if top_vehicule %}
+      <p>&#127942; Véhicule le plus rentable : <strong>{{ top_vehicule.vehicule__plaque }}</strong>
+        ({{ top_vehicule.t|monnaie }})</p>
+    {% endif %}
+
+    <div class="table-responsive"><table class="table table-sm table-striped mb-0">
+      <thead><tr><th>Date</th><th>Montant versé</th><th>Montant fixe</th></tr></thead>
+      <tbody>{% for r in recap %}
+        <tr><td>{{ r.date|date:"d/m/Y" }}</td><td>{{ r.verse|monnaie }}</td><td>{{ r.fixe|monnaie }}</td></tr>
+      {% empty %}
+        <tr><td colspan="3" class="text-muted">Aucune recette sur ce mois.</td></tr>
+      {% endfor %}</tbody></table></div>
+  </div>
+</div>
+{{ carte|json_script:"carte-data" }}
+{% endblock %}
+
+{% block scripts %}
+{% include "_charts_js.html" %}
+<script>
+(function () {
+  const p = JSON.parse(document.getElementById('parc-data').textContent);
+  vizBarres('chart-parc', p.tranches, p.effectifs, VIZ.bleu, 'Véhicules');
+})();
+</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const carte = JSON.parse(document.getElementById('carte-data').textContent);
+const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g,
+  (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const estCoord = (x) => typeof x === 'number' && Number.isFinite(x);
+
+const map = L.map('map').setView(carte.center, carte.zoom);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+
+carte.vehicules.forEach(function (v) {
+  if (!estCoord(v.lat) || !estCoord(v.lon)) return;   // 0 est une coordonnée valide
+  L.circleMarker([v.lat, v.lon], {color: carte.colors[v.situation] || '#333',
+    radius: 11, fillOpacity: 0.85, weight: 2})
+    .addTo(map)
+    .bindPopup('<b>' + escapeHtml(v.plaque) + '</b><br>' + escapeHtml(v.marque) + ' ' +
+               escapeHtml(v.modele) + '<br>' + escapeHtml(v.situation_libelle));
+});
+</script>
+{% endblock %}

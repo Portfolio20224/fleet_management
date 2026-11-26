@@ -1,0 +1,47 @@
+{% load filters %}
+{# Fiche statistique d'un chauffeur. Attend `stats` (voir fleet/stats.py). #}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="card text-center shadow-sm h-100"><div class="card-body">
+    <h3 class="h6 text-muted">Jours travaillés <span class="text-nowrap">({{ stats.mois_courant }})</span></h3>
+    <p class="h3 mb-0">{{ stats.kpi.jours_travailles }}</p>
+    <p class="small text-muted mb-0">{{ stats.kpi.retards }} retard(s) · {{ stats.kpi.absences }} absence(s)</p></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card text-center shadow-sm h-100"><div class="card-body">
+    <h3 class="h6 text-muted">Recettes du mois</h3>
+    <p class="h3 mb-0">{{ stats.kpi.recettes }}</p>
+    <p class="small text-muted mb-0">{{ stats.kpi.verse|monnaie }} versés</p></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card text-center shadow-sm h-100"><div class="card-body">
+    <h3 class="h6 text-muted">Écarts de recette du mois</h3>
+    <p class="h3 mb-0 {% if stats.kpi.ecarts %}text-danger{% endif %}">{{ stats.kpi.ecarts }}</p>
+    <p class="small text-muted mb-0">{% if stats.kpi.manque %}{{ stats.kpi.manque|monnaie }} manquants{% else %}aucun manque{% endif %}</p></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card text-center shadow-sm h-100"><div class="card-body">
+    <h3 class="h6 text-muted">Pannes déclarées du mois</h3>
+    <p class="h3 mb-0">{{ stats.kpi.pannes }}</p></div></div></div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-4"><div class="card shadow-sm h-100"><div class="card-body">
+    <h3 class="h6">Jours travaillés par mois</h3>
+    <canvas id="st-jours" height="170" role="img" aria-label="Courbe des jours travaillés par mois sur 12 mois"></canvas></div></div></div>
+  <div class="col-lg-4"><div class="card shadow-sm h-100"><div class="card-body">
+    <h3 class="h6">Écarts de recette par mois</h3>
+    <canvas id="st-ecarts" height="170" role="img" aria-label="Courbe des écarts de recette par mois sur 12 mois"></canvas></div></div></div>
+  <div class="col-lg-4"><div class="card shadow-sm h-100"><div class="card-body">
+    <h3 class="h6">Pannes déclarées par mois</h3>
+    <canvas id="st-pannes" height="170" role="img" aria-label="Courbe des pannes déclarées par mois sur 12 mois"></canvas></div></div></div>
+</div>
+
+<details class="mt-2 small">
+  <summary class="text-muted">Voir les données (12 derniers mois)</summary>
+  <div class="table-responsive mt-2"><table class="table table-sm mb-0">
+    <thead><tr><th>Mois</th>{% for m in stats.series.mois %}<th class="text-end">{{ m }}</th>{% endfor %}</tr></thead>
+    <tbody>
+      <tr><th scope="row">Jours travaillés</th>{% for v in stats.series.jours %}<td class="text-end">{{ v }}</td>{% endfor %}</tr>
+      <tr><th scope="row">Écarts de recette</th>{% for v in stats.series.ecarts %}<td class="text-end">{{ v }}</td>{% endfor %}</tr>
+      <tr><th scope="row">Pannes déclarées</th>{% for v in stats.series.pannes %}<td class="text-end">{{ v }}</td>{% endfor %}</tr>
+    </tbody></table></div>
+</details>
+<p class="small text-muted mt-2 mb-0">
+  Jour travaillé = pointage « Présent » ou « Retard » saisi par la RH.
+  Écart de recette = montant versé inférieur au montant fixe attendu.
+</p>
+{{ stats.series|json_script:"stats-chauffeur-data" }}

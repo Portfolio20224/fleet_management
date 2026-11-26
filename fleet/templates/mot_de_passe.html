@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Mon mot de passe — Fleet Manager{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6 col-lg-5">
+    <div class="card shadow">
+      <div class="card-body p-4">
+        <h1 class="h3 card-title mb-3">&#128273; {% if premiere_fois %}Choisissez votre mot de passe{% else %}Changer mon mot de passe{% endif %}</h1>
+        {% if premiere_fois %}
+          <p class="text-muted small">Vous utilisez un mot de passe provisoire donné par le service RH.
+            Remplacez-le par un mot de passe que vous seul connaissez.</p>
+        {% endif %}
+        {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+        <form method="post">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label for="id_old_password" class="form-label">{% if premiere_fois %}Mot de passe provisoire{% else %}Mot de passe actuel{% endif %}</label>
+            <input type="password" name="old_password" id="id_old_password" autocomplete="current-password"
+                   class="form-control {% if form.old_password.errors %}is-invalid{% endif %}" required autofocus>
+            {% for e in form.old_password.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+          </div>
+          <div class="mb-3">
+            <label for="id_new_password1" class="form-label">Nouveau mot de passe</label>
+            <input type="password" name="new_password1" id="id_new_password1" autocomplete="new-password"
+                   class="form-control {% if form.new_password1.errors %}is-invalid{% endif %}" required aria-describedby="aide-mdp">
+            {% for e in form.new_password1.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+            <div id="aide-mdp" class="form-text">Au moins 8 caractères, pas uniquement des chiffres, différent de votre nom et pas trop courant.</div>
+          </div>
+          <div class="mb-3">
+            <label for="id_new_password2" class="form-label">Confirmer le nouveau mot de passe</label>
+            <input type="password" name="new_password2" id="id_new_password2" autocomplete="new-password"
+                   class="form-control {% if form.new_password2.errors %}is-invalid{% endif %}" required>
+            {% for e in form.new_password2.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Enregistrer mon mot de passe</button>
+        </form>
+        <p class="small text-muted mt-3 mb-0">Mot de passe oublié ? Demandez au service RH de le réinitialiser.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

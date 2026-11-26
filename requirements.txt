@@ -1,0 +1,8 @@
+# Application
+Django>=5.2,<7.0
+Pillow>=10.0
+# Production (Render / Docker)
+psycopg[binary]>=3.2
+dj-database-url>=2.2
+gunicorn>=23.0
+whitenoise>=6.7

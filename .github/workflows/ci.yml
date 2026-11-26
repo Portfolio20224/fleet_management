@@ -1,0 +1,125 @@
+# Intégration continue : à chaque push et pull request.
+#  1. tests  : les 99+ tests sur une vraie base PostgreSQL (comme en production)
+#  2. docker : construction de l'image, démarrage, et vérification qu'elle répond
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests (PostgreSQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: fleet
+          POSTGRES_USER: fleet
+          POSTGRES_PASSWORD: fleet-ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fleet -d fleet"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://fleet:fleet-ci@localhost:5432/fleet
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Dépendances
+        run: pip install -r requirements.txt coverage
+
+      - name: Vérifications Django
+        run: |
+          python manage.py check
+          # échoue si un changement de modèle n'a pas sa migration
+          python manage.py makemigrations --check --dry-run
+
+      - name: Tests et couverture
+        run: |
+          coverage run --source=fleet --omit="fleet/migrations/*,fleet/tests.py" manage.py test fleet --verbosity 2
+          coverage report
+
+      - name: Réglages de production (check --deploy)
+        env:
+          DJANGO_DEBUG: "0"
+          DJANGO_SECRET_KEY: ci-${{ github.run_id }}-cle-de-test-suffisamment-longue-et-aleatoire-0123456789
+          DJANGO_ALLOWED_HOSTS: fleet.exemple.cd
+        run: python manage.py check --deploy
+
+  docker:
+    name: Image Docker
+    runs-on: ubuntu-latest
+    needs: tests
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: fleet
+          POSTGRES_USER: fleet
+          POSTGRES_PASSWORD: fleet-ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fleet -d fleet"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Construction de l'image
+        run: docker build -t fleet-manager:ci .
+
+      - name: Démarrage du conteneur (migrations + compte administrateur)
+        run: |
+          docker run -d --name fleet --network host \
+            -e DATABASE_URL=postgresql://fleet:fleet-ci@localhost:5432/fleet \
+            -e DJANGO_DEBUG=0 \
+            -e DJANGO_SECRET_KEY=ci-docker-cle-de-test-suffisamment-longue-et-aleatoire-0123456789 \
+            -e DJANGO_ALLOWED_HOSTS=localhost \
+            -e DJANGO_SECURE_SSL_REDIRECT=0 \
+            -e DJANGO_SUPERUSER_USERNAME=admin \
+            -e DJANGO_SUPERUSER_PASSWORD=Admin-CI-Kinshasa-2026 \
+            -e PORT=8000 \
+            fleet-manager:ci
+
+      - name: L'application répond
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/sante/; then echo; break; fi
+            sleep 2
+          done
+          curl -fsS http://localhost:8000/sante/ | grep -q ok
+          # page de connexion et CSS de l'administration (WhiteNoise)
+          curl -fsS http://localhost:8000/login/ | grep -q "Connexion"
+          curl -fsS -o /dev/null http://localhost:8000/admin/login/
+          curl -fsS -o /dev/null http://localhost:8000/static/admin/css/base.css
+          docker logs fleet 2>&1 | grep -q "administrateur « admin » créé"
+          # Gunicorn ne tourne pas en root
+          docker top fleet -o user,args
+          ! docker top fleet -o user,args | grep -E "^root[[:space:]].*gunicorn"
+
+      - name: Journaux du conteneur
+        if: always()
+        run: docker logs fleet

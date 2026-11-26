@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Accès refusé — Fleet Manager{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6 text-center">
+    <h1 class="display-6 mb-3">&#9940; Accès refusé</h1>
+    <p class="text-muted">{{ exception|default:"Vous n'avez pas les droits nécessaires pour ouvrir cette page." }}</p>
+    <a href="{% url 'fleet:home' %}" class="btn btn-primary">Retour à l'accueil</a>
+  </div>
+</div>
+{% endblock %}

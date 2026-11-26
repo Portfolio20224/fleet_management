@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Connexion — Fleet Manager{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5">
+    <div class="card shadow">
+      <div class="card-body p-4">
+        <h1 class="h3 card-title mb-4">&#128274; Connexion</h1>
+        {% if form.errors %}
+          <div class="alert alert-danger" role="alert">Identifiants incorrects. Réessayez.</div>
+        {% endif %}
+        <form method="post" action="{% url 'login' %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ next }}">
+          <div class="mb-3">
+            <label for="id_username" class="form-label">Nom d'utilisateur</label>
+            <input type="text" name="username" id="id_username" class="form-control"
+                   value="{{ form.username.value|default:'' }}"
+                   autocomplete="username" autocapitalize="none" autofocus required>
+          </div>
+          <div class="mb-3">
+            <label for="id_password" class="form-label">Mot de passe</label>
+            <input type="password" name="password" id="id_password" class="form-control"
+                   autocomplete="current-password" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Se connecter</button>
+        </form>
+        {% if show_demo_accounts %}
+        <hr>
+        <p class="small text-muted mb-1"><strong>Comptes de démo</strong> (mot de passe : <code>demo1234</code>) :</p>
+        <p class="small text-muted mb-0">
+          <code>dg</code> (DG) &bull; <code>finance</code> (Trésorier) &bull; <code>rh</code> (RH) &bull;
+          <code>tech</code> (Technique) &bull; <code>per1</code> (Percepteur) &bull; <code>chauf1</code> (Chauffeur)
+        </p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

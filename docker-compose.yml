@@ -1,0 +1,43 @@
+# Essai local de l'image de production, avec PostgreSQL.
+#   docker compose up --build      puis http://localhost:8000
+# Identifiants de l'administrateur ci-dessous. FLEET_SEED_DEMO=1 recharge les données de démo
+# (et efface les autres) à chaque démarrage : mettez 0 pour garder vos saisies.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: fleet
+      POSTGRES_USER: fleet
+      POSTGRES_PASSWORD: fleet-local
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fleet -d fleet"]
+      interval: 3s
+      retries: 10
+
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://fleet:fleet-local@db:5432/fleet
+      DJANGO_DEBUG: "0"
+      DJANGO_SECRET_KEY: cle-locale-uniquement-pour-docker-compose
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+      DJANGO_CSRF_TRUSTED_ORIGINS: http://localhost:8000
+      DJANGO_SECURE_SSL_REDIRECT: "0"     # pas de HTTPS en local
+      DJANGO_COOKIES_SECURISES: "0"
+      DJANGO_SUPERUSER_USERNAME: admin
+      DJANGO_SUPERUSER_PASSWORD: Admin-Local-2026
+      FLEET_SHOW_DEMO_ACCOUNTS: "1"
+      FLEET_SEED_DEMO: "1"
+    volumes:
+      - media:/app/media
+
+volumes:
+  pgdata:
+  media:

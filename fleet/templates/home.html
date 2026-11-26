@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Accueil — Fleet Manager{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+  <h1 class="h2 mb-0">&#128652; Fleet Manager <span class="text-muted fs-5">— Gestion de flotte</span></h1>
+  <span class="badge bg-dark fs-6">Connecté : {{ user.first_name|default:user.username }}{% if user.role_name %} ({{ user.profile.get_role_display }}){% endif %}</span>
+</div>
+
+{% if not user.role_name %}
+<div class="alert alert-warning" role="alert">
+  Aucun rôle n'est associé à votre compte : aucun espace n'est accessible pour l'instant.
+  Contactez un administrateur pour qu'il vous attribue un rôle.
+</div>
+{% endif %}
+
+<div class="row g-3">
+  {% if user.role_name == 'PERCEPTEUR' or user.role_name == 'DG' %}
+  <div class="col-md-4"><div class="card shadow-sm h-100 border-warning"><div class="card-body">
+    <h2 class="h5">&#128176; Percepteur</h2><p class="text-muted small">Saisie rapide des recettes, caméra, missions du jour, clôture.</p>
+    <a href="{% url 'fleet:percepteur' %}" class="btn btn-warning btn-sm">Ouvrir</a></div></div></div>
+  {% endif %}
+  {% if user.role_name == 'CHAUFFEUR' or user.role_name == 'DG' %}
+  <div class="col-md-4"><div class="card shadow-sm h-100 border-info"><div class="card-body">
+    <h2 class="h5">&#128663; Chauffeur</h2><p class="text-muted small">Pointage, véhicule attribué, déclaration de panne avec photo.</p>
+    <a href="{% url 'fleet:chauffeur' %}" class="btn btn-info btn-sm">Ouvrir</a></div></div></div>
+  {% endif %}
+  {% if user.role_name == 'TECHNIQUE' or user.role_name == 'DG' %}
+  <div class="col-md-4"><div class="card shadow-sm h-100 border-danger"><div class="card-body">
+    <h2 class="h5">&#128295; Service Technique</h2><p class="text-muted small">Kanban des pannes : déclarée, diagnostic, réparation, terminée.</p>
+    <a href="{% url 'fleet:technique' %}" class="btn btn-danger btn-sm">Ouvrir</a></div></div></div>
+  {% endif %}
+  {% if user.role_name == 'RH' or user.role_name == 'DG' %}
+  <div class="col-md-4"><div class="card shadow-sm h-100 border-success"><div class="card-body">
+    <h2 class="h5">&#128101; RH</h2><p class="text-muted small">Chauffeurs, attributions (avec gel), congés, état des véhicules.</p>
+    <a href="{% url 'fleet:rh' %}" class="btn btn-success btn-sm">Ouvrir</a></div></div></div>
+  {% endif %}
+  {% if user.role_name == 'TRESORIER' or user.role_name == 'DG' %}
+  <div class="col-md-4"><div class="card shadow-sm h-100 border-secondary"><div class="card-body">
+    <h2 class="h5">&#128202; Finance</h2><p class="text-muted small">Recettes J/S/M, dépenses par catégorie, trésorerie, exports.</p>
+    <a href="{% url 'fleet:finance' %}" class="btn btn-secondary btn-sm">Ouvrir</a></div></div></div>
+  {% endif %}
+  {% if user.role_name == 'DG' %}
+  <div class="col-md-4"><div class="card shadow-sm h-100 border-primary"><div class="card-body">
+    <h2 class="h5">&#128084; Direction Générale</h2><p class="text-muted small">KPI, carte des véhicules, alertes critiques, rapports mensuels.</p>
+    <a href="{% url 'fleet:dg' %}" class="btn btn-primary btn-sm">Ouvrir</a></div></div></div>
+  {% endif %}
+</div>
+
+{% if user.is_staff %}
+<div class="card mt-4">
+  <div class="card-header">&#128272; Administration</div>
+  <div class="card-body">
+    <p class="small text-muted mb-0">Back-office complet (gestion de toutes les tables, équivalent Google Sheets / AppSheet) :
+      <a href="{% url 'admin:index' %}">ouvrir l'administration</a>.</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

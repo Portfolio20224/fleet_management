@@ -1,0 +1,15 @@
+# Exclus de l'image Docker
+.git
+.github
+**/__pycache__
+**/*.pyc
+.env
+.env.*
+!.env.example
+db.sqlite3
+media/
+staticfiles/
+.coverage
+htmlcov/
+docker-compose.yml
+DECISIONS.md

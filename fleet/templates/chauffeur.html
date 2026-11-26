@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Chauffeur — Fleet Manager{% endblock %}
+{% block content %}
+<div class="row"><div class="col-lg-8 mx-auto">
+<h1 class="h2 mb-1">&#128663; Espace Chauffeur</h1>
+<p class="text-muted">&#128241; Interface optimisée mobile{% if moi %} — {{ moi.prenom }} {{ moi.nom }}{% endif %}</p>
+{% if not moi and user.role_name != 'DG' %}
+<div class="alert alert-warning" role="alert">Votre compte n'est relié à aucune fiche chauffeur. Contactez le service RH.</div>
+{% endif %}
+
+<div class="card mb-4">
+  <div class="card-header">&#128336; Mon pointage du jour</div>
+  <div class="card-body">
+    {% if presence.statut == 'Absent' %}
+      <p class="mb-0"><span class="badge bg-danger">Absent</span> aujourd'hui{% if presence.observation %} — {{ presence.observation }}{% endif %}.</p>
+    {% elif presence %}
+      <p class="mb-0">Arrivée à <strong>{{ presence.heure_arrivee|time:"H:i" }}</strong>
+        ({{ presence.get_statut_display }}){% if presence.heure_depart %} — départ à <strong>{{ presence.heure_depart|time:"H:i" }}</strong>{% endif %}.</p>
+    {% else %}
+      <p class="text-muted mb-0">Pas encore pointé aujourd'hui.</p>
+    {% endif %}
+    <p class="small text-muted mt-1 mb-0">Le pointage est enregistré par le service RH. Une erreur ? Signalez-la à la RH.</p>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">&#128652; Mon véhicule attribué</div>
+  <div class="card-body">
+    {% if vehicule %}
+      <h2 class="h4">{{ vehicule.marque }} {{ vehicule.modele }} <span class="badge bg-dark">{{ vehicule.plaque }}</span></h2>
+      <div class="row g-2 mt-2">
+        <div class="col-6"><strong>Carburant :</strong> {{ vehicule.carburant|default:"—" }}</div>
+        <div class="col-6"><strong>Kilométrage :</strong> {{ vehicule.kilometrage }} km</div>
+        <div class="col-6"><strong>Prochain CT :</strong> {{ vehicule.prochain_ct|date:"d/m/Y"|default:"—" }}</div>
+        <div class="col-6"><strong>Assurance :</strong> {{ vehicule.assurance_expire|date:"d/m/Y"|default:"—" }}</div>
+        <div class="col-12"><strong>Situation :</strong> {{ vehicule.get_situation_display }}</div>
+      </div>
+      <p class="text-muted small mt-2 mb-0">Attribué depuis le {{ attribution.date_debut|date:"d/m/Y" }}.</p>
+    {% else %}
+      <p class="text-muted mb-0">Aucun véhicule ne vous est actuellement attribué.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card mb-4 border-danger">
+  <div class="card-header bg-danger-subtle">&#128295; Déclarer une panne</div>
+  <div class="card-body">
+    {% if vehicules %}
+    <form method="post" enctype="multipart/form-data" class="row g-3">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="panne">
+      <div class="col-md-6">
+        <label for="id_vehicule" class="form-label">Véhicule concerné *</label>
+        <select name="vehicule" id="id_vehicule" class="form-select" required>
+          {% for v in vehicules %}<option value="{{ v.id }}" {% if vehicule and v.id == vehicule.id %}selected{% endif %}>{{ v.plaque }} ({{ v.modele }})</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label for="id_priorite" class="form-label">Priorité *</label>
+        <select name="priorite" id="id_priorite" class="form-select">
+          {% for code, libelle in priorites %}<option value="{{ code }}" {% if code == 'Moyenne' %}selected{% endif %}>{{ libelle }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-12">
+        <label for="id_description" class="form-label">Description de la panne *</label>
+        <textarea name="description" id="id_description" class="form-control" rows="2" required
+                  placeholder="Ex : Bruit anormal au freinage avant droit…"></textarea>
+      </div>
+      <div class="col-12">
+        <label for="id_photo" class="form-label">&#128247; Photo de la pièce endommagée (caméra, 5 Mo max.)</label>
+        <input type="file" name="photo" id="id_photo" class="form-control" accept="image/*" capture="environment">
+      </div>
+      <div class="col-12"><button type="submit" class="btn btn-danger w-100">&#128232; Envoyer au service technique</button></div>
+    </form>
+    {% else %}
+      <p class="text-muted mb-0">Vous pourrez déclarer une panne dès qu'un véhicule vous sera attribué.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card h-100"><div class="card-header">&#128336; Mes 10 derniers pointages</div>
+      <div class="card-body table-responsive"><table class="table table-sm mb-0">
+        <thead><tr><th>Date</th><th>Arrivée</th><th>Départ</th><th>Statut</th></tr></thead>
+        <tbody>{% for p in presences %}
+          <tr><td>{{ p.date|date:"d/m/Y" }}</td><td>{{ p.heure_arrivee|time:"H:i"|default:"—" }}</td>
+              <td>{{ p.heure_depart|time:"H:i"|default:"—" }}</td><td>{{ p.get_statut_display }}</td></tr>
+        {% empty %}
+          <tr><td colspan="4" class="text-muted">Aucun pointage enregistré.</td></tr>
+        {% endfor %}</tbody></table></div></div>
+  </div>
+  <div class="col-md-6">
+    <div class="card h-100"><div class="card-header">&#128220; Historique des missions</div>
+      <div class="card-body table-responsive"><table class="table table-sm mb-0">
+        <thead><tr><th>Début</th><th>Fin</th><th>Véhicule</th><th>Actif</th></tr></thead>
+        <tbody>{% for h in historique %}
+          <tr><td>{{ h.date_debut|date:"d/m/Y" }}</td><td>{{ h.date_fin|date:"d/m/Y"|default:"—" }}</td>
+              <td>{{ h.vehicule.plaque }}</td>
+              <td>{% if h.actif %}<span class="badge bg-success">Oui</span>{% else %}<span class="badge bg-secondary">Non</span>{% endif %}</td></tr>
+        {% empty %}
+          <tr><td colspan="4" class="text-muted">Aucune mission enregistrée.</td></tr>
+        {% endfor %}</tbody></table></div></div>
+  </div>
+</div>
+{% if stats %}
+<div class="card mt-4">
+  <div class="card-header">&#128200; Mes statistiques</div>
+  <div class="card-body">{% include "_stats_chauffeur.html" %}</div>
+</div>
+{% endif %}
+</div></div>
+{% endblock %}
+
+{% block scripts %}
+{% if stats %}{% include "_charts_js.html" %}{% endif %}
+{% endblock %}

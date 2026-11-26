@@ -1,0 +1,51 @@
+{# Chart.js + réglages communs. À inclure dans {% block scripts %}. #}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+// Palette de référence (ordre catégoriel fixe) et encres de texte.
+const VIZ = { bleu: '#257de0', orange: '#f47230', aqua: '#00b894',
+              texte: '#191919', texte2: '#666666', grille: '#ececec' };
+
+function vizOptions(extra) {
+  return Object.assign({
+    maintainAspectRatio: true,
+    interaction: { mode: 'index', intersect: false },     // survol : infobulle sur la colonne
+    plugins: { legend: { display: false },
+               tooltip: { displayColors: false } },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: VIZ.texte2 } },
+      y: { beginAtZero: true, grid: { color: VIZ.grille }, border: { display: false },
+           ticks: { color: VIZ.texte2, precision: 0 } }
+    }
+  }, extra || {});
+}
+
+// Courbe d'un indicateur (une seule série, donc pas de légende : le titre la nomme).
+function vizLigne(id, labels, data, couleur, libelle) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  new Chart(el, { type: 'line', options: vizOptions(),
+    data: { labels: labels, datasets: [{ label: libelle, data: data, borderColor: couleur,
+      backgroundColor: couleur, borderWidth: 2, pointRadius: 4, pointHoverRadius: 6,
+      pointBorderColor: '#fff', pointBorderWidth: 2, tension: 0 }] } });   // segments droits : pas de courbe qui dépasse les valeurs réelles
+}
+
+// Histogramme (effectifs par tranche).
+function vizBarres(id, labels, data, couleur, libelle) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  new Chart(el, { type: 'bar', options: vizOptions({ interaction: { mode: 'nearest', intersect: true } }),
+    data: { labels: labels, datasets: [{ label: libelle, data: data, backgroundColor: couleur,
+      borderRadius: { topLeft: 4, topRight: 4 }, borderSkipped: 'start',
+      maxBarThickness: 48, categoryPercentage: 0.8 }] } });
+}
+
+// Fiche chauffeur (gabarit _stats_chauffeur.html), si présente sur la page.
+(function () {
+  const el = document.getElementById('stats-chauffeur-data');
+  if (!el) return;
+  const s = JSON.parse(el.textContent);
+  vizLigne('st-jours', s.mois, s.jours, VIZ.bleu, 'Jours travaillés');
+  vizLigne('st-ecarts', s.mois, s.ecarts, VIZ.orange, 'Écarts de recette');
+  vizLigne('st-pannes', s.mois, s.pannes, VIZ.aqua, 'Pannes déclarées');
+})();
+</script>

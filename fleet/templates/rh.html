@@ -1,0 +1,407 @@
+{% extends "base.html" %}{% load filters %}
+{% block title %}RH — Fleet Manager{% endblock %}
+{% block content %}
+<h1 class="h2 mb-4">&#128101; Ressources Humaines</h1>
+
+{% if mdp_provisoire %}
+<div class="alert alert-warning border-2" role="alert">
+  <h2 class="h5">&#128273; Identifiants à remettre à {{ mdp_provisoire.nom }}</h2>
+  <p class="mb-1">Identifiant : <code class="fs-5">{{ mdp_provisoire.identifiant }}</code></p>
+  <p class="mb-2">Mot de passe provisoire : <code class="fs-5 user-select-all">{{ mdp_provisoire.mdp }}</code></p>
+  <p class="small mb-0">Notez-les maintenant : ce mot de passe <strong>ne sera plus affiché</strong>. La personne devra en choisir un nouveau à sa première connexion.</p>
+</div>
+{% endif %}
+<ul class="nav nav-tabs mb-3" role="tablist">
+  <li class="nav-item" role="presentation"><button type="button" class="nav-link {% if tab == 'chauffeurs' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#chauffeurs" role="tab">&#128739;&#65039; Chauffeurs</button></li>
+  <li class="nav-item" role="presentation"><button type="button" class="nav-link {% if tab == 'pointage' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#pointage" role="tab">&#128336; Pointage du jour</button></li>
+  <li class="nav-item" role="presentation"><button type="button" class="nav-link {% if tab == 'attributions' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#attributions" role="tab">&#128273; Attributions véhicules</button></li>
+  <li class="nav-item" role="presentation"><button type="button" class="nav-link {% if tab == 'conges' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#conges" role="tab">&#127958;&#65039; Congés</button></li>
+  <li class="nav-item" role="presentation"><button type="button" class="nav-link {% if tab == 'vehicules' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#vehicules" role="tab">&#128693; État des véhicules</button></li>
+  <li class="nav-item" role="presentation"><button type="button" class="nav-link {% if tab == 'stats' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#stats" role="tab">&#128200; Statistiques chauffeur</button></li>
+  <li class="nav-item" role="presentation"><button type="button" class="nav-link {% if tab == 'ages' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#ages" role="tab">&#128106; Pyramide des âges</button></li>
+  <li class="nav-item" role="presentation"><button type="button" class="nav-link {% if tab == 'comptes' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#comptes" role="tab">&#128272; Comptes</button></li>
+</ul>
+
+<div class="tab-content">
+  <!-- CHAUFFEURS -->
+  <div class="tab-pane fade {% if tab == 'chauffeurs' %}show active{% endif %}" id="chauffeurs" role="tabpanel">
+    <div class="row g-3 mb-3">
+      <div class="col-4"><div class="card text-center shadow-sm"><div class="card-body">
+        <h2 class="h6 text-muted">Actifs</h2><p class="h3 mb-0 text-success">{{ nb_actifs }}</p></div></div></div>
+      <div class="col-4"><div class="card text-center shadow-sm"><div class="card-body">
+        <h2 class="h6 text-muted">En congé</h2><p class="h3 mb-0 text-warning">{{ nb_conge }}</p></div></div></div>
+      <div class="col-4"><div class="card text-center shadow-sm"><div class="card-body">
+        <h2 class="h6 text-muted">Suspendus</h2><p class="h3 mb-0 text-danger">{{ nb_suspendus }}</p></div></div></div>
+    </div>
+    <div class="table-responsive"><table class="table table-sm table-hover">
+      <thead><tr><th>ID</th><th>Nom</th><th>Prénom</th><th>Permis</th><th>Expire le</th><th>Embauche</th><th>Statut</th></tr></thead>
+      <tbody>{% for c in chauffeurs %}
+        <tr>
+          <td>{{ c.id }}</td><td>{{ c.nom }}</td><td>{{ c.prenom }}</td><td>{{ c.permis }}</td>
+          <td>{{ c.date_expiration_permis|date:"d/m/Y"|default:"—" }}</td><td>{{ c.date_embauche|date:"d/m/Y"|default:"—" }}</td>
+          <td><span class="badge {% if c.statut == 'Actif' %}bg-success{% elif c.statut == 'En conge' %}bg-warning text-dark{% else %}bg-danger{% endif %}">{{ c.get_statut_display }}</span></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" class="text-muted">Aucun chauffeur enregistré.</td></tr>
+      {% endfor %}</tbody></table></div>
+
+    <div class="card mt-3">
+      <div class="card-header">&#10133; Ajouter un chauffeur (prototype)</div>
+      <div class="card-body">
+        <form method="post" class="row g-2 align-items-end">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="add_chauffeur">
+          <input type="hidden" name="tab" value="chauffeurs">
+          <div class="col-md-3"><label for="ch_nom" class="form-label small mb-0">Nom *</label><input name="nom" id="ch_nom" class="form-control" required></div>
+          <div class="col-md-3"><label for="ch_prenom" class="form-label small mb-0">Prénom *</label><input name="prenom" id="ch_prenom" class="form-control" required></div>
+          <div class="col-md-3"><label for="ch_tel" class="form-label small mb-0">Téléphone</label><input name="tel" id="ch_tel" type="tel" class="form-control" autocomplete="tel"></div>
+          <div class="col-md-3"><label for="ch_naissance" class="form-label small mb-0">Date de naissance</label><input type="date" name="date_naissance" id="ch_naissance" class="form-control"></div>
+          <div class="col-md-2"><label for="ch_permis" class="form-label small mb-0">Permis</label><select name="permis" id="ch_permis" class="form-select"><option>B</option><option>C</option><option>D</option><option>E</option></select></div>
+          <div class="col-md-3"><label for="ch_exp_permis" class="form-label small mb-0">Expiration du permis *</label><input type="date" name="date_expiration_permis" id="ch_exp_permis" class="form-control" required></div>
+          <div class="col-md-3"><label for="ch_embauche" class="form-label small mb-0">Date d'embauche</label><input type="date" name="date_embauche" id="ch_embauche" class="form-control"></div>
+          <div class="col-md-4"><button type="submit" class="btn btn-primary w-100">Ajouter le chauffeur</button></div>
+        </form>
+        <p class="small text-muted mt-2 mb-0">La date de naissance alimente la pyramide des âges ; l'expiration du permis alimente les alertes de la Direction.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- POINTAGE -->
+  <div class="tab-pane fade {% if tab == 'pointage' %}show active{% endif %}" id="pointage" role="tabpanel">
+    <p class="text-muted small">Pointage du {% now "d/m/Y" %} par le service RH. Laissez l'heure vide pour pointer l'heure actuelle ;
+      une arrivée après {{ heure_retard }} est comptée en retard. Les corrections des jours passés se font dans l'administration.</p>
+    <div class="table-responsive"><table class="table table-sm align-middle">
+      <thead><tr><th>Chauffeur</th><th>Véhicule</th><th>Arrivée</th><th>Départ</th><th>Statut</th><th style="min-width:330px">Pointer</th></tr></thead>
+      <tbody>{% for l in pointage %}
+        <tr>
+          <td>{{ l.obj.nom }} {{ l.obj.prenom }}</td>
+          <td>{% if l.vehicule %}<span class="badge bg-dark">{{ l.vehicule.plaque }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          <td>{{ l.presence.heure_arrivee|time:"H:i"|default:"—" }}</td>
+          <td>{{ l.presence.heure_depart|time:"H:i"|default:"—" }}</td>
+          <td>{% if l.presence %}<span class="badge {% if l.presence.statut == 'Present' %}bg-success{% elif l.presence.statut == 'Retard' %}bg-warning text-dark{% else %}bg-danger{% endif %}">{{ l.presence.get_statut_display }}</span>
+              {% elif l.en_conge %}<span class="badge bg-info text-dark">En congé</span>
+              {% else %}<span class="text-muted small">Non pointé</span>{% endif %}</td>
+          <td>
+            {% if l.presence.heure_depart %}<span class="text-muted small">Journée complète</span>
+            {% elif l.en_conge and not l.presence %}<span class="text-muted small">Congé approuvé — pas de pointage</span>
+            {% else %}
+            <form method="post" class="d-flex gap-1 align-items-center">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="pointage">
+              <input type="hidden" name="tab" value="pointage">
+              <input type="hidden" name="chauffeur" value="{{ l.obj.id }}">
+              <label class="visually-hidden" for="h{{ l.obj.id }}">Heure pour {{ l.obj }}</label>
+              <input type="time" name="heure" id="h{{ l.obj.id }}" class="form-control form-control-sm" style="max-width:110px">
+              {% if not l.presence.heure_arrivee %}
+                <button type="submit" name="quoi" value="arrivee" class="btn btn-success btn-sm">Arrivée</button>
+                {% if not l.presence %}<button type="submit" name="quoi" value="absent" class="btn btn-outline-danger btn-sm">Absent</button>{% endif %}
+              {% else %}
+                <button type="submit" name="quoi" value="depart" class="btn btn-outline-primary btn-sm">Départ</button>
+              {% endif %}
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-muted">Aucun chauffeur actif.</td></tr>
+      {% endfor %}</tbody></table></div>
+  </div>
+
+  <!-- ATTRIBUTIONS -->
+  <div class="tab-pane fade {% if tab == 'attributions' %}show active{% endif %}" id="attributions" role="tabpanel">
+    <div class="card mb-3"><div class="card-header">Attributions en cours</div>
+      <div class="card-body table-responsive"><table class="table table-sm mb-0">
+        <thead><tr><th>ID</th><th>Chauffeur</th><th>Véhicule</th><th>Plaque</th><th>Depuis le</th></tr></thead>
+        <tbody>{% for a in attributions %}
+          <tr><td>{{ a.id }}</td><td>{{ a.chauffeur }}</td><td>{{ a.vehicule.marque }} {{ a.vehicule.modele }}</td>
+              <td><span class="badge bg-dark">{{ a.vehicule.plaque }}</span></td><td>{{ a.date_debut|date:"d/m/Y" }}</td></tr>
+        {% empty %}<tr><td colspan="5" class="text-muted">Aucune attribution active.</td></tr>
+        {% endfor %}</tbody></table></div></div>
+
+    <div class="card border-warning"><div class="card-header bg-warning-subtle">Nouvelle attribution</div>
+      <div class="card-body">
+        {% if vehicules_dispo and chauffeurs %}
+        <form method="post" class="row g-2 align-items-end">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="attribution">
+          <input type="hidden" name="tab" value="attributions">
+          <div class="col-md-4">
+            <label for="at_chauffeur" class="form-label small mb-0">Chauffeur</label>
+            <select name="chauffeur" id="at_chauffeur" class="form-select" required>
+              {% for c in chauffeurs %}<option value="{{ c.id }}">{{ c.id }} — {{ c.nom }} {{ c.prenom }}</option>{% endfor %}
+            </select></div>
+          <div class="col-md-4">
+            <label for="at_vehicule" class="form-label small mb-0">Véhicule (en service ou gelé)</label>
+            <select name="vehicule" id="at_vehicule" class="form-select" required>
+              {% for v in vehicules_dispo %}<option value="{{ v.id }}">{{ v.plaque }} ({{ v.modele }}) — {{ v.get_situation_display }}</option>{% endfor %}
+            </select></div>
+          <div class="col-md-2">
+            <label for="at_debut" class="form-label small mb-0">Date de début</label>
+            <input type="date" name="date_debut" id="at_debut" class="form-control"></div>
+          <div class="col-md-2"><button type="submit" class="btn btn-warning w-100">&#128273; Attribuer</button></div>
+        </form>
+        <p class="text-muted small mt-2 mb-0">Si le véhicule est déjà attribué, l'ancienne attribution est automatiquement <strong>gelée</strong> (traces conservées).</p>
+        {% else %}
+        <p class="text-muted mb-0">Aucun véhicule disponible (en service ou gelé){% if not chauffeurs %} ni aucun chauffeur{% endif %} : attribution impossible pour l'instant.</p>
+        {% endif %}
+      </div></div>
+  </div>
+
+  <!-- CONGES -->
+  <div class="tab-pane fade {% if tab == 'conges' %}show active{% endif %}" id="conges" role="tabpanel">
+    <div class="row g-3">
+      <div class="col-md-7">
+        <div class="card h-100"><div class="card-header">Demandes de congés</div>
+          <div class="card-body table-responsive"><table class="table table-sm mb-0">
+            <thead><tr><th>ID</th><th>Chauffeur</th><th>Type</th><th>Début</th><th>Fin</th><th>Statut</th></tr></thead>
+            <tbody>{% for c in conges %}
+              <tr><td>{{ c.id }}</td><td>{{ c.chauffeur }}</td><td>{{ c.get_type_conge_display }}</td>
+                  <td>{{ c.date_debut|date:"d/m/Y" }}</td><td>{{ c.date_fin|date:"d/m/Y" }}</td>
+                  <td><span class="badge {% if c.statut == 'Approuve' %}bg-success{% elif c.statut == 'En attente' %}bg-warning text-dark{% else %}bg-danger{% endif %}">{{ c.get_statut_display }}</span></td></tr>
+            {% empty %}
+              <tr><td colspan="6" class="text-muted">Aucune demande de congé.</td></tr>
+            {% endfor %}</tbody></table></div></div>
+      </div>
+      <div class="col-md-5">
+        <div class="card mb-3"><div class="card-header">Soumettre une demande</div>
+          <div class="card-body">
+            <form method="post" class="row g-2">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="add_conge">
+              <input type="hidden" name="tab" value="conges">
+              <div class="col-12"><label for="cg_chauffeur" class="form-label small mb-0">Chauffeur</label>
+                <select name="chauffeur" id="cg_chauffeur" class="form-select" required>
+                {% for c in chauffeurs %}<option value="{{ c.id }}">{{ c.id }} — {{ c.nom }} {{ c.prenom }}</option>{% endfor %}
+              </select></div>
+              <div class="col-12"><label for="cg_type" class="form-label small mb-0">Type de congé</label>
+                <select name="type_conge" id="cg_type" class="form-select">
+                {% for code, libelle in types_conge %}<option value="{{ code }}">{{ libelle }}</option>{% endfor %}</select></div>
+              <div class="col-6"><label for="cg_debut" class="form-label small mb-0">Début</label><input type="date" name="date_debut" id="cg_debut" class="form-control" required></div>
+              <div class="col-6"><label for="cg_fin" class="form-label small mb-0">Fin</label><input type="date" name="date_fin" id="cg_fin" class="form-control" required></div>
+              <div class="col-12"><button type="submit" class="btn btn-primary w-100">Soumettre</button></div>
+            </form></div></div>
+        <div class="card"><div class="card-header">À valider</div>
+          <div class="card-body">
+            {% if conges_attente %}
+            <form method="post" class="row g-2 align-items-end">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="decision">
+              <input type="hidden" name="tab" value="conges">
+              <div class="col-12"><label for="cg_attente" class="form-label small mb-0">Demande</label>
+                <select name="conge_id" id="cg_attente" class="form-select">
+                {% for c in conges_attente %}<option value="{{ c.id }}">{{ c.id }} — {{ c.chauffeur }} ({{ c.get_type_conge_display }}, {{ c.date_debut|date:"d/m" }} → {{ c.date_fin|date:"d/m/Y" }})</option>{% endfor %}
+              </select></div>
+              <div class="col-6"><button type="submit" name="decision" value="Approuve" class="btn btn-success w-100">&#9989; Approuver</button></div>
+              <div class="col-6"><button type="submit" name="decision" value="Refuse" class="btn btn-outline-danger w-100">&#10060; Refuser</button></div>
+            </form>
+            {% else %}<p class="text-muted mb-0">Aucune demande en attente.</p>{% endif %}
+          </div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ETAT VEHICULES -->
+  <div class="tab-pane fade {% if tab == 'vehicules' %}show active{% endif %}" id="vehicules" role="tabpanel">
+    <div class="table-responsive"><table class="table table-sm table-hover">
+      <thead><tr><th>Plaque</th><th>Véhicule</th><th>Situation</th><th>Km</th><th>Prochain CT</th><th>Assurance</th><th>Jours CT</th><th>Jours assurance</th></tr></thead>
+      <tbody>{% for v in vehicules %}
+        <tr>
+          <td><span class="badge bg-dark">{{ v.obj.plaque }}</span></td>
+          <td>{{ v.obj.marque }} {{ v.obj.modele }}</td>
+          <td>{{ v.obj.get_situation_display }}</td>
+          <td>{{ v.obj.kilometrage }}</td>
+          <td>{{ v.obj.prochain_ct|date:"d/m/Y"|default:"—" }}</td>
+          <td>{{ v.obj.assurance_expire|date:"d/m/Y"|default:"—" }}</td>
+          {% if v.j_ct is None %}<td class="text-muted">—</td>
+          {% else %}<td class="{% if v.j_ct < 0 %}table-danger fw-bold{% elif v.j_ct <= 15 %}table-warning{% endif %}">{{ v.j_ct }}</td>{% endif %}
+          {% if v.j_assu is None %}<td class="text-muted">—</td>
+          {% else %}<td class="{% if v.j_assu < 0 %}table-danger fw-bold{% elif v.j_assu <= 15 %}table-warning{% endif %}">{{ v.j_assu }}</td>{% endif %}
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="text-muted">Aucun véhicule enregistré.</td></tr>
+      {% endfor %}</tbody></table></div>
+    <p class="text-muted small">Rouge = échu, orange = sous 15 jours, « — » = date non renseignée.</p>
+  </div>
+
+  <!-- STATISTIQUES CHAUFFEUR -->
+  <div class="tab-pane fade {% if tab == 'stats' %}show active{% endif %}" id="stats" role="tabpanel">
+    <form method="get" action="{% url 'fleet:rh' %}" class="row g-2 align-items-end mb-3">
+      <input type="hidden" name="tab" value="stats">
+      <div class="col-md-5">
+        <label for="st_chauffeur" class="form-label small mb-0">Chauffeur</label>
+        <select name="chauffeur" id="st_chauffeur" class="form-select" onchange="this.form.submit()">
+          <option value="">— Choisir un chauffeur —</option>
+          {% for c in chauffeurs %}<option value="{{ c.id }}" {% if chauffeur_sel and c.id == chauffeur_sel.id %}selected{% endif %}>{{ c.nom }} {{ c.prenom }} ({{ c.get_statut_display }})</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-auto"><noscript><button type="submit" class="btn btn-primary">Afficher</button></noscript></div>
+    </form>
+    {% if stats %}
+      <h2 class="h5 mb-3">{{ chauffeur_sel.prenom }} {{ chauffeur_sel.nom }}</h2>
+      {% include "_stats_chauffeur.html" %}
+    {% else %}
+      <p class="text-muted">Choisissez un chauffeur pour afficher ses statistiques : jours travaillés, écarts de recette et pannes déclarées sur 12 mois.</p>
+    {% endif %}
+  </div>
+
+  <!-- PYRAMIDE DES ÂGES -->
+  <div class="tab-pane fade {% if tab == 'ages' %}show active{% endif %}" id="ages" role="tabpanel">
+    <div class="row g-3 mb-3">
+      <div class="col-6 col-lg-3"><div class="card text-center shadow-sm h-100"><div class="card-body">
+        <h2 class="h6 text-muted">Effectif chauffeurs</h2><p class="h3 mb-0">{{ ages.effectif }}</p>
+        <p class="small text-muted mb-0">{% for st, n in ages.par_statut %}{{ st }} : {{ n }}{% if not forloop.last %} · {% endif %}{% endfor %}</p></div></div></div>
+      <div class="col-6 col-lg-3"><div class="card text-center shadow-sm h-100"><div class="card-body">
+        <h2 class="h6 text-muted">Âge moyen / médian</h2>
+        <p class="h3 mb-0">{% if ages.age_moyen is not None %}{{ ages.age_moyen }} / {{ ages.age_median }} ans{% else %}—{% endif %}</p>
+        {% if ages.sans_date %}<p class="small text-muted mb-0">{{ ages.sans_date }} sans date de naissance</p>{% endif %}</div></div></div>
+      <div class="col-6 col-lg-3"><div class="card text-center shadow-sm h-100"><div class="card-body">
+        <h2 class="h6 text-muted">Départs à la retraite ({{ ages.age_retraite }} ans)</h2>
+        <p class="h3 mb-0 {% if ages.departs_12 %}text-danger{% endif %}">{{ ages.departs_12 }} <span class="fs-6 text-muted">sous 12 mois</span></p>
+        <p class="small text-muted mb-0">{{ ages.departs_24 }} sous 24 mois · {{ ages.departs_36 }} sous 36 mois</p></div></div></div>
+      <div class="col-6 col-lg-3"><div class="card text-center shadow-sm h-100"><div class="card-body">
+        <h2 class="h6 text-muted">Capacité aujourd'hui</h2>
+        <p class="h3 mb-0 {% if ages.vehicules_sans_chauffeur %}text-warning{% endif %}">{{ ages.vehicules_sans_chauffeur }} <span class="fs-6 text-muted">véhicule(s) sans chauffeur</span></p>
+        <p class="small text-muted mb-0">{{ ages.chauffeurs_sans_vehicule }} chauffeur(s) actif(s) sans véhicule</p></div></div></div>
+    </div>
+    <div class="row g-3">
+      <div class="col-lg-6"><div class="card shadow-sm h-100"><div class="card-body">
+        <h2 class="h6">Chauffeurs par tranche d'âge</h2>
+        <canvas id="chart-ages" height="190" role="img" aria-label="Histogramme des chauffeurs par tranche d'âge"></canvas>
+        <details class="small mt-2"><summary class="text-muted">Voir les données</summary>
+          <table class="table table-sm mt-2 mb-0"><tbody>{% for t, n in ages.graph.tranches|zip_lists:ages.graph.effectifs %}<tr><td>{{ t }}</td><td class="text-end">{{ n }}</td></tr>{% endfor %}</tbody></table>
+        </details></div></div></div>
+      <div class="col-lg-6"><div class="card shadow-sm h-100"><div class="card-body">
+        <h2 class="h6">Proches de la retraite (moins de 5 ans)</h2>
+        <div class="table-responsive"><table class="table table-sm mb-0">
+          <thead><tr><th>Chauffeur</th><th class="text-end">Âge</th><th>Retraite prévue</th><th>Statut</th></tr></thead>
+          <tbody>{% for x in ages.proches_retraite %}
+            <tr><td>{{ x.obj.nom }} {{ x.obj.prenom }}</td><td class="text-end">{{ x.age }} ans</td>
+                <td>{% if x.mois_avant_retraite <= 12 %}<span class="badge bg-danger">&#9888; {{ x.retraite|date:"m/Y" }}</span>{% else %}{{ x.retraite|date:"m/Y" }}{% endif %}</td>
+                <td>{{ x.obj.get_statut_display }}</td></tr>
+          {% empty %}
+            <tr><td colspan="4" class="text-muted">Aucun départ à la retraite prévu dans les 5 ans.</td></tr>
+          {% endfor %}</tbody></table></div>
+      </div></div></div>
+    </div>
+    <p class="small text-muted mt-2 mb-0">L'âge de départ ({{ ages.age_retraite }} ans) est un paramètre (<code>FLEET_AGE_RETRAITE</code>) à confirmer
+      selon la réglementation et la convention applicables. Un besoin de recrutement apparaît quand des véhicules restent sans chauffeur
+      ou que des départs approchent.</p>
+    {{ ages.graph|json_script:"ages-data" }}
+  </div>
+
+  <!-- COMPTES -->
+  <div class="tab-pane fade {% if tab == 'comptes' %}show active{% endif %}" id="comptes" role="tabpanel">
+    <div class="card mb-3 border-primary">
+      <div class="card-header bg-primary-subtle">&#10133; Créer un compte de connexion</div>
+      <div class="card-body">
+        <form method="post" class="row g-2 align-items-end" id="form-compte">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="creer_compte">
+          <input type="hidden" name="tab" value="comptes">
+          <div class="col-md-3">
+            <label for="cp_role" class="form-label small mb-0">Rôle *</label>
+            <select name="role" id="cp_role" class="form-select" required>
+              {% for code, libelle in roles_attribuables %}<option value="{{ code }}" {% if code == 'CHAUFFEUR' %}selected{% endif %}>{{ libelle }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4 js-chauffeur">
+            <label for="cp_chauffeur" class="form-label small mb-0">Fiche chauffeur *</label>
+            <select name="chauffeur" id="cp_chauffeur" class="form-select">
+              {% for c in chauffeurs_sans_compte %}<option value="{{ c.id }}">{{ c.nom }} {{ c.prenom }}</option>
+              {% empty %}<option value="">Tous les chauffeurs ont déjà un compte</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2 js-personne d-none">
+            <label for="cp_nom" class="form-label small mb-0">Nom *</label><input name="nom" id="cp_nom" class="form-control" maxlength="70"></div>
+          <div class="col-md-2 js-personne d-none">
+            <label for="cp_prenom" class="form-label small mb-0">Prénom *</label><input name="prenom" id="cp_prenom" class="form-control" maxlength="70"></div>
+          <div class="col-md-2 js-personne d-none">
+            <label for="cp_tel" class="form-label small mb-0">Téléphone</label><input name="tel" id="cp_tel" type="tel" class="form-control"></div>
+          <div class="col-md-3">
+            <label for="cp_ident" class="form-label small mb-0">Identifiant <span class="text-muted">(facultatif)</span></label>
+            <input name="identifiant" id="cp_ident" class="form-control" maxlength="150" autocapitalize="none" placeholder="prenom.nom">
+          </div>
+          <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">Créer le compte</button></div>
+        </form>
+        <p class="small text-muted mt-2 mb-0">Un mot de passe provisoire est généré et affiché une seule fois ; la personne le remplace à sa première connexion.
+          {% if user.role_name != 'DG' %}Les comptes Direction Générale sont créés par la DG.{% endif %}
+          Pour un chauffeur, le compte est relié à sa fiche (créez d'abord la fiche dans l'onglet « Chauffeurs »).</p>
+      </div>
+    </div>
+
+    <div class="table-responsive"><table class="table table-sm align-middle">
+      <thead><tr><th>Nom</th><th>Identifiant</th><th>Rôle</th><th>Dernière connexion</th><th>État</th><th>Actions</th></tr></thead>
+      <tbody>{% for c in comptes %}
+        <tr class="{% if not c.obj.is_active %}text-muted{% endif %}">
+          <td>{{ c.obj.first_name|default:"—" }}</td>
+          <td><code>{{ c.obj.username }}</code></td>
+          <td>{% if c.obj.is_superuser %}<span class="badge bg-dark">Administrateur</span>
+              {% elif c.obj.role_name %}{{ c.obj.profile.get_role_display }}{% else %}<span class="text-danger small">Aucun rôle</span>{% endif %}</td>
+          <td>{{ c.obj.last_login|date:"d/m/Y H:i"|default:"jamais" }}</td>
+          <td>{% if not c.obj.is_active %}<span class="badge bg-secondary">Désactivé</span>
+              {% elif c.obj.profile.doit_changer_mdp %}<span class="badge bg-warning text-dark">Mot de passe provisoire</span>
+              {% else %}<span class="badge bg-success">Actif</span>{% endif %}</td>
+          <td>
+            {% if c.gerable %}
+            <form method="post" class="d-flex gap-1">
+              {% csrf_token %}
+              <input type="hidden" name="tab" value="comptes">
+              <input type="hidden" name="user_id" value="{{ c.obj.id }}">
+              {% if c.obj.is_active %}
+                <button type="submit" name="action" value="reinit_mdp" class="btn btn-outline-primary btn-sm">Nouveau mot de passe</button>
+                <button type="submit" name="action" value="desactiver" class="btn btn-outline-danger btn-sm">Désactiver</button>
+              {% else %}
+                <button type="submit" name="action" value="activer" class="btn btn-outline-success btn-sm">Réactiver</button>
+              {% endif %}
+            </form>
+            {% elif c.obj.pk == user.pk %}<span class="small text-muted">Votre compte</span>
+            {% else %}<span class="small text-muted">Géré par l'administration</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}</tbody></table></div>
+    <p class="small text-muted">Désactiver un compte bloque la connexion mais conserve tout l'historique (recettes, pointages…).</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% include "_charts_js.html" %}
+<script>
+// Compte chauffeur : on choisit sa fiche ; autres rôles : on saisit nom et prénom.
+(function () {
+  const role = document.getElementById('cp_role');
+  if (!role) return;
+  function maj() {
+    const ch = role.value === 'CHAUFFEUR';
+    document.querySelectorAll('.js-chauffeur').forEach(e => e.classList.toggle('d-none', !ch));
+    document.querySelectorAll('.js-personne').forEach(e => e.classList.toggle('d-none', ch));
+    document.getElementById('cp_chauffeur').required = ch;
+    document.getElementById('cp_nom').required = !ch;
+    document.getElementById('cp_prenom').required = !ch;
+  }
+  role.addEventListener('change', maj); maj();
+})();
+</script>
+<script>
+(function () {
+  const a = JSON.parse(document.getElementById('ages-data').textContent);
+  // Les graphiques d'un onglet caché ont une taille nulle : on dessine à l'affichage.
+  let fait = false;
+  function dessiner() { if (fait) return; fait = true;
+    vizBarres('chart-ages', a.tranches, a.effectifs, VIZ.bleu, 'Chauffeurs'); }
+  const btn = document.querySelector('[data-bs-target="#ages"]');
+  if (btn.classList.contains('active')) dessiner();
+  btn.addEventListener('shown.bs.tab', dessiner);
+})();
+</script>
+<script>
+// Garde l'onglet courant dans l'URL (rechargement, lien partagé).
+document.querySelectorAll('[data-bs-toggle="tab"]').forEach(function (btn) {
+  btn.addEventListener('shown.bs.tab', function (e) {
+    const url = new URL(window.location);
+    url.searchParams.set('tab', e.target.dataset.bsTarget.slice(1));
+    history.replaceState(null, '', url);
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,196 @@
+{% extends "base.html" %}{% load filters %}
+{% block title %}Percepteur — Fleet Manager{% endblock %}
+{% block content %}
+<h1 class="h2 mb-4">&#128176; Espace Percepteur</h1>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3"><div class="card text-center shadow-sm"><div class="card-body">
+    <h2 class="h6 text-muted">Recettes saisies</h2><p class="h3 mb-0">{{ nb_du_jour }}</p></div></div></div>
+  <div class="col-6 col-md-3"><div class="card text-center shadow-sm"><div class="card-body">
+    <h2 class="h6 text-muted">Total versé</h2><p class="h3 mb-0 text-success">{{ total_verse|monnaie }}</p></div></div></div>
+  <div class="col-6 col-md-3"><div class="card text-center shadow-sm"><div class="card-body">
+    <h2 class="h6 text-muted">Total attendu</h2><p class="h3 mb-0">{{ total_fixe|monnaie }}</p></div></div></div>
+  <div class="col-6 col-md-3"><div class="card text-center shadow-sm"><div class="card-body">
+    <h2 class="h6 text-muted">Écart</h2><p class="h3 mb-0 {% if ecart < 0 %}text-danger{% else %}text-success{% endif %}">{{ ecart|monnaie }}</p></div></div></div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">&#128203; Missions du jour</div>
+  <div class="card-body table-responsive">
+    <table class="table table-sm table-hover mb-0">
+      <thead><tr><th>Chauffeur</th><th>Véhicule</th><th>Plaque</th><th>Depuis le</th></tr></thead>
+      <tbody>{% for m in missions %}
+        <tr><td>{{ m.chauffeur }}</td><td>{{ m.vehicule.marque }} {{ m.vehicule.modele }}</td>
+            <td><span class="badge bg-dark">{{ m.vehicule.plaque }}</span></td><td>{{ m.date_debut|date:"d/m/Y" }}</td></tr>
+      {% empty %}
+        <tr><td colspan="4" class="text-muted">Aucune mission active aujourd'hui.</td></tr>
+      {% endfor %}</tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card mb-4 border-warning">
+  <div class="card-header bg-warning-subtle">&#9889; Saisie rapide d'une recette</div>
+  <div class="card-body">
+    {% if nb_saisissables %}
+    <form method="post" enctype="multipart/form-data" class="row g-3" id="form-recette">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="recette">
+      <div class="col-md-4">
+        <label for="id_chauffeur" class="form-label">Chauffeur * <span class="text-muted small">(avec véhicule attribué)</span></label>
+        <select name="chauffeur" id="id_chauffeur" class="form-select" required>
+          {% for c in chauffeurs_saisie %}
+          <option value="{{ c.obj.id }}" data-vehicules="{{ c.vehicules_csv }}"
+                  {% if c.bloque %}disabled{% endif %}>{{ c.obj.id }} — {{ c.obj.nom }} {{ c.obj.prenom }}{% if c.bloque %} — déjà saisie à {{ c.bloque.a }}, possible dès {{ c.bloque.jusqua }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label for="id_vehicule" class="form-label">Véhicule attribué *</label>
+        <select name="vehicule" id="id_vehicule" class="form-select" required>
+          {% for v in vehicules_saisie %}
+          <option value="{{ v.obj.id }}" data-chauffeur="{{ v.chauffeur_id }}">{{ v.obj.plaque }} ({{ v.obj.modele }}){% if v.obj.situation != 'En service' %} — {{ v.obj.get_situation_display }}{% endif %}</option>
+          {% endfor %}
+        </select>
+        <div class="form-text" id="aide-vehicule">Sélectionné automatiquement selon l'attribution en cours.</div>
+      </div>
+      <div class="col-md-2">
+        <label for="id_montant_verse" class="form-label">Montant versé ({{ devise }}) *</label>
+        <input type="number" name="montant_verse" id="id_montant_verse" class="form-control"
+               value="{{ montant_defaut }}" min="0" step="1000" inputmode="numeric" required>
+      </div>
+      <div class="col-md-2">
+        <label for="id_montant_fixe" class="form-label">Montant fixe attendu</label>
+        <input type="number" name="montant_fixe" id="id_montant_fixe" class="form-control"
+               value="{{ montant_defaut }}" min="0" step="1000" inputmode="numeric">
+      </div>
+      <div class="col-md-6">
+        <label for="id_observation" class="form-label">Observation</label>
+        <input type="text" name="observation" id="id_observation" class="form-control" placeholder="Ex : Versement partiel…">
+      </div>
+      <div class="col-md-6">
+        <label for="id_capture" class="form-label">&#128247; Capture du versement (caméra, 5 Mo max.)</label>
+        <input type="file" name="capture" id="id_capture" class="form-control" accept="image/*" capture="environment">
+      </div>
+      <div class="col-12">
+        <button type="submit" class="btn btn-warning w-100 py-3" id="btn-valider" style="touch-action: manipulation">
+          &#9989; Double-cliquez pour valider la recette
+        </button>
+        <p class="form-text text-center mb-0">Une seule recette par chauffeur sur 12 heures.</p>
+      </div>
+    </form>
+    {% elif chauffeurs_saisie %}
+      <p class="text-muted mb-0">Tous les chauffeurs ayant un véhicule attribué ont déjà une recette dans les 12 dernières heures.</p>
+      <ul class="small text-muted mb-0 mt-2">{% for c in chauffeurs_saisie %}<li>{{ c.obj }} : saisie à {{ c.bloque.a }}, possible dès {{ c.bloque.jusqua }}</li>{% endfor %}</ul>
+    {% else %}
+      <p class="text-muted mb-0">Aucun chauffeur n'a de véhicule attribué aujourd'hui : la saisie est impossible. Les attributions se font dans l'espace RH.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">&#129534; Recettes du jour</div>
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="cloturer">
+      {% if ids_a_cloturer %}
+      <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+        <span class="small">&#128274; {{ ids_a_cloturer|length }} recette(s) à clôturer{% if user.role_name != 'DG' %} (les vôtres){% endif %}</span>
+        <button type="button" class="btn btn-link btn-sm p-0" id="tout-cocher">Tout sélectionner</button>
+        <button type="submit" class="btn btn-outline-primary btn-sm ms-auto">Clôturer la sélection</button>
+      </div>
+      {% endif %}
+      <div class="table-responsive">
+        <table class="table table-sm table-striped mb-0">
+          <thead><tr><th scope="col"><span class="visually-hidden">Sélection</span></th><th>N°</th><th>Ordre</th><th>Chauffeur</th><th>Véhicule</th><th>Versé</th><th>Fixe</th><th>Capture</th><th>Statut</th></tr></thead>
+          <tbody>{% for r in du_jour %}
+            <tr>
+              <td>{% if r.id in ids_a_cloturer %}<input type="checkbox" class="form-check-input js-cloture" name="recette_ids" value="{{ r.id }}" id="rc{{ r.id }}" aria-label="Sélectionner la recette {{ r.id }}">{% endif %}</td>
+              <td>{{ r.id }}</td><td>{{ r.num_ordre }}</td><td>{{ r.chauffeur }}</td>
+              <td>{{ r.vehicule.plaque }}</td>
+              <td>{{ r.montant_verse|monnaie }}</td><td>{{ r.montant_fixe|monnaie }}</td>
+              <td>{% if r.capture %}<a href="{{ r.capture.url }}" target="_blank" rel="noopener"><img src="{{ r.capture.url }}" alt="Capture de la recette {{ r.id }}" class="rounded border" style="height:32px;width:32px;object-fit:cover"></a>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+              <td>{% if r.cloturee %}<span class="badge bg-success">Clôturée</span>{% else %}<span class="badge bg-warning text-dark">En attente</span>{% endif %}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="9" class="text-muted">Aucune recette saisie aujourd'hui.</td></tr>
+          {% endfor %}</tbody>
+        </table>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ---- Saisie rapide : véhicule attribué automatiquement + validation par double clic
+(function () {
+  const form = document.getElementById('form-recette');
+  if (!form) return;
+  const selCh = document.getElementById('id_chauffeur');
+  const selVe = document.getElementById('id_vehicule');
+  const aide = document.getElementById('aide-vehicule');
+  const btn = document.getElementById('btn-valider');
+
+  function syncVehicule() {
+    const opt = selCh.selectedOptions[0];
+    const ids = opt ? opt.dataset.vehicules.split(',') : [];
+    let premier = null;
+    for (const o of selVe.options) {
+      const ok = ids.includes(o.value);
+      o.hidden = !ok; o.disabled = !ok;
+      if (ok && !premier) premier = o;
+    }
+    if (premier) selVe.value = premier.value;
+    aide.textContent = ids.length > 1
+      ? 'Ce chauffeur a ' + ids.length + ' véhicules attribués : vérifiez le choix.'
+      : "Sélectionné automatiquement selon l'attribution en cours.";
+  }
+  // Au chargement, se placer sur le premier chauffeur saisissable.
+  if (selCh.selectedOptions[0]?.disabled) {
+    const libre = Array.from(selCh.options).find(o => !o.disabled);
+    if (libre) selCh.value = libre.value;
+  }
+  selCh.addEventListener('change', syncVehicule);
+  syncVehicule();
+
+  // Double clic (ou double appui sur mobile) : le 1er arme le bouton,
+  // le 2e dans les 1,5 s envoie. Un clic isolé n'envoie rien.
+  const LIBELLE = btn.innerHTML;
+  let arme = false, confirme = false, minuteur = null;
+  function desarmer() {
+    arme = false;
+    btn.classList.replace('btn-success', 'btn-warning');
+    btn.innerHTML = LIBELLE;
+  }
+  btn.addEventListener('click', function (e) {
+    if (confirme) return;
+    if (!arme) {
+      e.preventDefault();
+      arme = true;
+      btn.classList.replace('btn-warning', 'btn-success');
+      btn.innerHTML = '&#128073; Cliquez encore pour confirmer';
+      minuteur = setTimeout(desarmer, 1500);
+    } else {
+      clearTimeout(minuteur);
+      // Champ obligatoire manquant : le navigateur l'indique, on repart de zéro.
+      if (!form.checkValidity()) { desarmer(); return; }
+      confirme = true;
+    }
+  });
+  form.addEventListener('submit', function (e) {
+    if (!confirme) { e.preventDefault(); return; }
+    btn.disabled = true;               // empêche un 3e clic de renvoyer le formulaire
+    btn.innerHTML = 'Enregistrement…';
+  });
+})();
+
+document.getElementById('tout-cocher')?.addEventListener('click', function () {
+  const cases = document.querySelectorAll('.js-cloture');
+  const toutes = Array.from(cases).every(c => c.checked);
+  cases.forEach(c => { c.checked = !toutes; });
+});
+</script>
+{% endblock %}

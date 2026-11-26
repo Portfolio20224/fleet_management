@@ -1,0 +1,53 @@
+# Blueprint Render : crée la base PostgreSQL et le service web en une fois.
+# Render > New > Blueprint > choisir ce dépôt GitHub. Voir DEPLOIEMENT.md.
+
+databases:
+  - name: fleet-db
+    databaseName: fleet
+    user: fleet
+    region: frankfurt          # même région que le service web (connexion interne)
+    # « free » : pour essayer. Une base gratuite EXPIRE 30 jours après sa création
+    # (14 jours de grâce, puis suppression). Passez à une offre payante pour de vraies données.
+    plan: free
+
+services:
+  - type: web
+    name: fleet-manager
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    region: frankfurt
+    # « free » : s'endort après 15 min sans visite, pas de disque (photos perdues au redémarrage).
+    plan: free
+    healthCheckPath: /sante/
+    envVars:
+      # Identifiants PostgreSQL : générés par Render, injectés ici automatiquement.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fleet-db
+          property: connectionString
+      - key: DJANGO_DEBUG
+        value: "0"
+      # Clé secrète tirée au hasard par Render à la création, puis conservée.
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      # Adresse xxx.onrender.com ajoutée automatiquement (RENDER_EXTERNAL_HOSTNAME).
+      # Ajoutez ici un nom de domaine personnel s'il y en a un, ex. fleet.mondomaine.cd
+      - key: DJANGO_ALLOWED_HOSTS
+        sync: false
+      - key: FLEET_SHOW_DEMO_ACCOUNTS
+        value: "0"
+      - key: WEB_CONCURRENCY
+        value: "2"
+      # Compte administrateur : demandé par Render à la création du Blueprint.
+      - key: DJANGO_SUPERUSER_USERNAME
+        sync: false
+      - key: DJANGO_SUPERUSER_PASSWORD
+        sync: false
+      - key: DJANGO_SUPERUSER_EMAIL
+        sync: false
+    # Pour conserver les photos et captures : offre payante + disque persistant.
+    # Décommentez ces lignes, et ajoutez FLEET_MEDIA_ROOT=/var/data/media ci-dessus.
+    # disk:
+    #   name: fleet-media
+    #   mountPath: /var/data/media
+    #   sizeGB: 1
